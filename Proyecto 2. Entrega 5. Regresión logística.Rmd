@@ -1,0 +1,100 @@
+---
+title: "Proyecto 2. Entrega 5. Regresión logística"
+author: 
+  - "Pablo Daniel Barillas Moreno, Carné No. 22193"
+  - "Mathew Cordero Aquino, Carné No. 22982"
+output:
+  pdf_document:
+    latex_engine: xelatex
+  html_document: default
+date: "2025-03-14"
+header-includes:
+   - \usepackage{fvextra}
+   - \DefineVerbatimEnvironment{Highlighting}{Verbatim}{breaklines,commandchars=\\\{\}}
+repository: "https://github.com/DanielBarillas/Proyecto-2_Entrega-5_Regresion-logistica.git"
+---
+
+### Enlace al Repositorio del proyecto 2 - Entrega 5 de minería de datos del Grupo #1
+[Repositorio en GitHub](https://github.com/DanielBarillas/Proyecto-2_Entrega-5_Regresion-logistica.git)
+
+### 0. Descargue los conjuntos de datos. 
+
+Para este punto, ya se ha realizado el proceso para descargar del sitio web: [House Prices - Advanced Regression Techniques](https://kaggle.com/competitions/house-prices-advanced-regression-techniques), la data de entrenamiento y la data de prueba, ambos extraídos desde la carpeta "house_prices_data/" en data frames llamados train_data (data de entrenamiento) y test_data (data de prueba), sin convertir automáticamente las variables categóricas en factores (stringsAsFactors = FALSE). Luego, se realiza una inspección inicial de train_data mediante tres funciones: head(train_data), que muestra las primeras filas del dataset; str(train_data), que despliega la estructura del data frame, incluyendo el tipo de cada variable; y summary(train_data), que proporciona un resumen estadístico de las variables numéricas y una descripción general de las categóricas.
+
+```{r}
+  train_data <- read.csv("train_set.csv", stringsAsFactors = FALSE)
+  test_data <- read.csv("test_set.csv", stringsAsFactors = FALSE)
+  
+  head(train_data)   # Muestra las primeras filas
+  str(train_data)    # Muestra la estructura del dataset
+  summary(train_data) # Resumen estadístico
+```
+### 1. Cree una variable dicotómica por cada una de las categorías de la variable respuesta categórica que creó en hojas anteriores. Debería tener 3 variables dicotómicas (valores 0 y 1) una que diga si la vivienda es cara o no, media o no, económica o no.
+
+```{r}
+
+```
+
+
+### 2. Use los mismos conjuntos de entrenamiento y prueba que utilizó en las hojas anteriores.
+
+```{r}
+
+```
+
+### 3. Elabore un modelo de regresión logística para conocer si una vivienda es cara o no, utilizando el conjunto de entrenamiento y explique los resultados a los que llega. El experimento debe ser reproducible por lo que debe fijar que los conjuntos de entrenamiento y prueba sean los mismos siempre que se ejecute el código. Use validación cruzada.
+
+```{r}
+
+```
+
+### 4. Analice el modelo. Determine si hay multicolinealidad en las variables, y cuáles son las que aportan al modelo, por su valor de significación. Haga un análisis de correlación de las variables del modelo y especifique si el modelo se adapta bien a los datos.
+
+```{r}
+
+```
+
+### 5. Utilice el modelo con el conjunto de prueba y determine la eficiencia del algoritmo para clasificar.
+
+```{r}
+
+```
+
+### 6. Explique si hay sobreajuste (overfitting) o no (recuerde usar para esto los errores del conjunto de prueba y de entrenamiento). Muestre las curvas de aprendizaje usando los errores de los conjuntos de entrenamiento y prueba.
+
+```{r}
+
+```
+
+### 7. Haga un tuneo del modelo para determinar los mejores parámetros, recuerde que los modelos de regresión logística se pueden regularizar como los de regresión lineal.
+
+```{r}
+
+```
+
+### 8. Haga un análisis de la eficiencia del algoritmo usando una matriz de confusión. Tenga en cuenta la efectividad, donde el algoritmo se equivocó más, donde se equivocó menos y la importancia que tienen los errores, el tiempo y la memoria consumida. Para esto último puede usar “profvis” si trabaja con R y “cProfile” en Python.
+
+```{r}
+
+```
+
+### 9. Determine cual de todos los modelos es mejor, puede usar AIC y BIC para esto, además de los parámetros de la matriz de confusión y los del profiler.
+
+```{r}
+
+```
+
+### 10. Haga un modelo de regresión logística para la variable categórica para el precio de las casas (categorías: barata, media y cara). Asegúrese de tunearlo para obtener el mejor modelo posible.
+
+```{r}
+
+```
+
+### 11. Compare la eficiencia del modelo anterior con los de clasificación de las entregas anteriores ¿Cuál se demoró más en procesar?¿Cuál se equivocó más?¿Cuál se equivocó menos?¿por qué? 
+
+```{r}
+
+```
+
+
+
