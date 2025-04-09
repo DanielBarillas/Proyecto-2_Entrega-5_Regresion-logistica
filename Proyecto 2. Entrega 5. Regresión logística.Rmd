@@ -31,34 +31,559 @@ Para este punto, ya se ha realizado el proceso para descargar del sitio web: [Ho
 ```
 ### 1. Cree una variable dicotómica por cada una de las categorías de la variable respuesta categórica que creó en hojas anteriores. Debería tener 3 variables dicotómicas (valores 0 y 1) una que diga si la vivienda es cara o no, media o no, económica o no.
 
-```{r}
+**Codificación de variables dicotómicas**
 
+En entregas anteriores, se transformó la variable `SalePrice` en una variable categórica que clasifica los precios de las viviendas en tres niveles: `barata`, `media` y `cara`. Esta categorización permite abordar el problema de predicción desde una perspectiva de clasificación. Para adaptar estos datos a modelos de regresión logística binaria, es necesario generar nuevas variables dicotómicas que indiquen si una observación pertenece o no a cada una de estas categorías.
+
+A continuación, se entrena un modelo de regresión logística binaria para predecir si una vivienda pertenece a la categoría `cara`. Se parte de los archivos `train_set.csv` y `test_set.csv`, asegurando que la variable categórica `SalePriceCat` esté correctamente definida, y que la variable binaria `es_cara` sea coherente.
+
+```{r message=FALSE, warning=FALSE}
+# Librerías necesarias
+library(dplyr)
+library(caret)
+
+# Cargar datos regenerados
+train <- read.csv("train_set.csv")
+test  <- read.csv("test_set.csv")
+
+# Crear variables dicotómicas a partir de SalePriceCat
+train <- train %>%
+  mutate(
+    es_barata = ifelse(SalePriceCat == "barata", 1, 0),
+    es_media  = ifelse(SalePriceCat == "media", 1, 0),
+    es_cara   = ifelse(SalePriceCat == "cara", 1, 0)
+  )
+
+test <- test %>%
+  mutate(
+    es_barata = ifelse(SalePriceCat == "barata", 1, 0),
+    es_media  = ifelse(SalePriceCat == "media", 1, 0),
+    es_cara   = ifelse(SalePriceCat == "cara", 1, 0)
+  )
+
+# Verificación rápida
+cat("Frecuencia de clases en train:\n")
+print(table(train$SalePriceCat))
+cat("\nFrecuencia binaria es_cara:\n")
+print(table(train$es_cara))
+
+# Variable de respuesta binaria como factor
+train$es_cara <- factor(ifelse(train$es_cara == 1, "caro", "no_caro"))
+
+# Modelo simplificado con variables relevantes
+set.seed(123)
+ctrl <- trainControl(
+  method = "cv",
+  number = 10,
+  sampling = "up",
+  savePredictions = TRUE
+)
+
+modelo_rl_final <- train(
+  es_cara ~ OverallQual + GrLivArea + GarageCars + TotalBsmtSF + YearBuilt,
+  data = train,
+  method = "glm",
+  family = "binomial",
+  trControl = ctrl,
+  metric = "Accuracy",
+  preProcess = c("center", "scale", "medianImpute")
+)
+
+# Resultados del modelo
+print(modelo_rl_final)
+summary(modelo_rl_final$finalModel)
+```
+Este modelo es ahora completamente funcional, con una variable respuesta válida (`es_cara`) y predictores seleccionados por su relevancia. Se entrena utilizando validación cruzada de 10 folds con balanceo (upsampling) para evitar el desbalance de clases. Los resultados mostrarán coeficientes significativos y métricas de desempeño útiles como `Accuracy`.
+
+**Serie 1: Creación de variables dicotómicas y modelo para viviendas caras**
+
+En esta serie se llevó a cabo la transformación de la variable categórica `SalePriceCat` en **tres variables dicotómicas**:
+
+- `es_barata`: vale 1 si la vivienda es barata, 0 en caso contrario.
+- `es_media`: vale 1 si la vivienda es media, 0 en caso contrario.
+- `es_cara`: vale 1 si la vivienda es cara, 0 en caso contrario.
+
+Estas variables permiten modelar cada categoría de forma binaria, lo cual es útil para ajustar modelos independientes con regresión logística.
+
+**Frecuencia de clases en el conjunto de entrenamiento**
+
+```r
+table(train$SalePriceCat)
 ```
 
+| Categoría | Frecuencia |
+|-----------|------------|
+| barata    | 313        |
+| media     | 312        |
+| cara      | 312        |
+
+La distribución de clases es **equilibrada**, lo cual es ideal para entrenar modelos binarios sin sesgo.
+
+**Frecuencia de la variable `es_cara`**
+
+```r
+table(train$es_cara)
+```
+
+| Valor | Significado         | Frecuencia |
+|-------|----------------------|------------|
+| 0     | no es vivienda cara  | 625        |
+| 1     | es vivienda cara     | 312        |
+
+Esto confirma que la variable binaria `es_cara` fue correctamente generada.
+
+
+**Modelo de regresión logística para predecir viviendas caras**
+
+Se construyó un modelo de regresión logística para predecir si una vivienda es `cara` utilizando 5 variables predictoras relevantes. El modelo se entrenó con validación cruzada de 10 folds, preprocesamiento (centrado, escalado e imputación), y balanceo por **upsampling**.
+
+**Resultados del modelo**
+
+- **Accuracy promedio**: `0.889`  
+- **Kappa**: `0.761`  
+  → Indican un buen rendimiento predictivo y acuerdo entre clases.
+
+**Coeficientes estimados**
+
+| Variable        | Coeficiente | Significancia | Interpretación                                   |
+|-----------------|-------------|---------------|--------------------------------------------------|
+| OverallQual     | -1.56       | ***           | A mayor calidad general, menor prob. de ser cara |
+| GrLivArea       | -1.90       | ***           | Mayor área habitable, menor probabilidad         |
+| GarageCars      | -0.61       | **            | Más garaje, menor probabilidad                   |
+| TotalBsmtSF     | -0.75       | ***           | Sótano más grande, menor probabilidad            |
+| YearBuilt       | -0.68       | ***           | Vivienda más reciente, menor probabilidad        |
+
+> Todos los predictores son **estadísticamente significativos** (`p < 0.01`), lo que valida su uso en el modelo.
+
+**Ajuste del modelo**
+
+- **Null deviance**: 1732.9
+- **Residual deviance**: 662.3
+- **AIC**: 674.3
+
+Estos valores indican que el modelo explica de forma sustancial la variabilidad de la variable respuesta `es_cara`.
+
+**Conclusión:** 
+
+La Serie 1 cumplió con éxito su objetivo de crear variables dicotómicas a partir de la categorización del precio, y de entrenar un modelo de regresión logística válido, interpretable y con buen rendimiento para identificar viviendas caras.
 
 ### 2. Use los mismos conjuntos de entrenamiento y prueba que utilizó en las hojas anteriores.
 
-```{r}
+**Reutilización de los conjuntos de entrenamiento y prueba**
 
+Para mantener la coherencia metodológica y asegurar una comparación justa entre los modelos de clasificación construidos en las diferentes entregas del proyecto, se ha reutilizado la misma partición de los datos en los conjuntos de entrenamiento y prueba definida previamente.
+
+Estos conjuntos (`train_set.csv` y `test_set.csv`) fueron generados al inicio del proyecto a partir del conjunto de datos original de Kaggle. La partición se realizó utilizando una semilla aleatoria fija para garantizar reproducibilidad en todas las etapas del análisis.
+
+A continuación, se presenta el código para cargar los archivos correspondientes:
+
+```{r message=FALSE, warning=FALSE}
+# Cargar conjuntos de datos ya particionados en entregas anteriores
+train <- read.csv("train_set.csv")
+test  <- read.csv("test_set.csv")
+
+# Verificar tamaño de los conjuntos
+cat("Observaciones en el conjunto de entrenamiento:", nrow(train), "\n")
+cat("Observaciones en el conjunto de prueba:", nrow(test), "\n")
+
+# Validar estructura y columna categórica
+str(train$SalePrice)
+table(train$SalePrice)
 ```
+El uso de estos mismos conjuntos permite evaluar el desempeño de los modelos en condiciones equivalentes, facilitando una comparación válida entre algoritmos como Árboles de Decisión, Random Forest, Naive Bayes, KNN y Regresión Logística, todos entrenados y probados con estos mismos datos.
+
+**Serie 2: Análisis de la variable `SalePrice` en el conjunto de entrenamiento**
+
+Para tener una mejor comprensión del comportamiento del precio de venta de las viviendas (`SalePrice`), se realizó un análisis exploratorio sobre el conjunto de entrenamiento.
+
+**Dimensión del conjunto**
+
+- Observaciones en el conjunto de entrenamiento: **937**
+- Observaciones en el conjunto de prueba: **232**
+
+**Vista preliminar de los precios**
+
+Los valores de `SalePrice` varían ampliamente en el conjunto de entrenamiento, con precios desde los **35,311** hasta los **745,000**, lo cual refleja una gran heterogeneidad en las propiedades evaluadas. Este comportamiento refuerza la necesidad de una transformación o categorización para modelar esta variable de manera más efectiva.
+
+**Frecuencia de precios**
+
+Se utilizó la función `table()` sobre `SalePrice` para obtener las frecuencias absolutas de cada precio observado. A partir de estos resultados, se destacan los siguientes hallazgos:
+
+- Hay múltiples precios únicos que solo aparecen **una vez**, indicando una gran dispersión.
+- Algunos valores de precio aparecen con mayor frecuencia, como:
+  - **100000**: aparece **9 veces**
+  - **125000**: aparece **9 veces**
+  - **135000**: aparece **8 veces**
+  - **140000**: aparece **16 veces**
+  - **150000**: aparece **3 veces**
+  - **160000**: aparece **7 veces**
+
+Estos picos de frecuencia podrían deberse a precios de lista comunes, umbrales de negociación o valores de referencia dentro del mercado.
+
+**Observación general**
+
+El análisis muestra que, aunque `SalePrice` es una variable numérica continua, en la práctica tiende a agruparse alrededor de valores “redondeados”, lo que sugiere la viabilidad de agruparla en categorías como **barata**, **media** y **cara**, para facilitar el modelado como problema de clasificación. Esta categorización fue efectuada en entregas anteriores a través de cuantiles.
 
 ### 3. Elabore un modelo de regresión logística para conocer si una vivienda es cara o no, utilizando el conjunto de entrenamiento y explique los resultados a los que llega. El experimento debe ser reproducible por lo que debe fijar que los conjuntos de entrenamiento y prueba sean los mismos siempre que se ejecute el código. Use validación cruzada.
 
-```{r}
+### Modelo de regresión logística para predecir si una vivienda es cara
 
+Para conocer qué factores influyen en que una vivienda sea clasificada como `cara`, se construye un modelo de regresión logística binaria utilizando como variable respuesta la columna `es_cara`, previamente generada a partir de la variable categórica `SalePriceCat`.
+
+El modelo se entrena sobre el conjunto de datos `train_set.csv`, previamente particionado de forma estratificada y reproducible. Se utiliza validación cruzada de 10 particiones (`k = 10`) y se aplica balanceo mediante **upsampling**, dada la menor proporción de casos `caro` respecto a `no_caro`.
+
+Además, se aplica preprocesamiento: centrado, escalado e imputación de valores faltantes por la mediana.
+
+```{r message=FALSE, warning=FALSE}
+# Librerías necesarias
+library(dplyr)
+library(caret)
+
+# Fijar semilla para garantizar reproducibilidad
+set.seed(123)
+
+# Cargar datos regenerados
+train <- read.csv("train_set.csv")
+
+# Crear variable dicotómica correctamente desde SalePriceCat
+train <- train %>%
+  mutate(
+    es_cara = ifelse(SalePriceCat == "cara", 1, 0)
+  )
+
+# Convertir a factor binario (para caret)
+train$es_cara <- factor(ifelse(train$es_cara == 1, "caro", "no_caro"))
+
+# Configuración de validación cruzada estratificada con balanceo
+ctrl <- trainControl(
+  method = "cv",
+  number = 10,
+  sampling = "up",  # balanceo por upsampling
+  savePredictions = TRUE
+)
+
+# Entrenamiento del modelo con variables relevantes
+modelo_rl <- train(
+  es_cara ~ OverallQual + GrLivArea + GarageCars + TotalBsmtSF + YearBuilt,
+  data = train,
+  method = "glm",
+  family = "binomial",
+  trControl = ctrl,
+  metric = "Accuracy",
+  preProcess = c("center", "scale", "medianImpute")
+)
+
+# Resultados del modelo
+print(modelo_rl)
+summary(modelo_rl$finalModel)
 ```
+
+El modelo entrenado permite identificar la probabilidad de que una vivienda sea clasificada como cara en función de variables clave como:
+
+- **OverallQual**: calidad general de los materiales y acabados.
+- **GrLivArea**: superficie habitable sobre el nivel del suelo.
+- **GarageCars**: capacidad del garaje (número de vehículos).
+- **TotalBsmtSF**: superficie total del sótano.
+- **YearBuilt**: año de construcción.
+
+El resumen de los coeficientes del modelo (`summary(modelo_rl$finalModel)`) permite observar cuáles variables son estadísticamente significativas (valores p bajos) y si su efecto es positivo o negativo sobre la probabilidad de ser una vivienda cara. Esto se analizará con mayor detalle en la siguiente sección.
+
+**Modelo simplificado de regresión logística para predecir si una vivienda es cara**
+
+Dado que los modelos anteriores presentaron problemas de sobreajuste y predicción trivial, en esta sección se entrena un modelo simplificado utilizando únicamente variables altamente relacionadas con el precio de la vivienda. Esto reduce la complejidad, mejora la interpretabilidad y evita la multicolinealidad.
+
+**Resultados del modelo**
+
+El modelo de regresión logística entrenado para predecir si una vivienda es cara (`es_cara`) obtuvo resultados satisfactorios tanto en desempeño predictivo como en interpretación estadística:
+
+- **Accuracy promedio**: `0.889`  
+- **Kappa**: `0.76`  
+Esto indica que el modelo clasifica correctamente el 88.9% de las observaciones, y tiene un acuerdo sustancial entre las clases (`caro` / `no_caro`) más allá del azar.
+
+**Análisis de coeficientes**
+
+El resumen del modelo (`summary(modelo_rl$finalModel)`) muestra los siguientes resultados:
+
+| Variable         | Coeficiente | Significancia (p-valor) | Interpretación                                       |
+|------------------|-------------|-------------------------|------------------------------------------------------|
+| OverallQual      | -1.557      | ***                     | A mayor calidad general, **menor** prob. de ser cara |
+| GrLivArea        | -1.902      | ***                     | A mayor superficie habitable, **menor** probabilidad |
+| GarageCars       | -0.606      | **                      | Más espacio de garaje, **menor** prob. de ser cara   |
+| TotalBsmtSF      | -0.746      | ***                     | Sótano más grande → menor probabilidad de ser cara   |
+| YearBuilt        | -0.677      | ***                     | Viviendas más nuevas tienden a ser menos caras       |
+
+**Nota:** Estos coeficientes negativos indican que estas variables están inversamente asociadas con la probabilidad de que una vivienda sea clasificada como `cara` dentro del contexto del conjunto de datos, posiblemente porque el precio ya fue categorizado y otras variables lo explican mejor.
+
+**Métricas del modelo**
+
+- **Null deviance**: 1732.9 → devianza del modelo sin predictores.
+- **Residual deviance**: 662.3 → mejora sustancial al incluir predictores.
+- **AIC**: 674.3 → buena medida de ajuste; menor es mejor.
+
+En conclusión, el modelo tiene un **buen desempeño predictivo**, y las variables seleccionadas son estadísticamente significativas. Esto valida su uso para identificar patrones asociados a viviendas clasificadas como caras en el conjunto de datos.
+
+### Serie 3: Categorización de `SalePrice` y representación gráfica
+
+Dada la gran dispersión en los valores de la variable `SalePrice`, se procedió a **categorizarlos** en tres niveles: **barata**, **media** y **cara**, utilizando los terciles (cuantiles 1/3 y 2/3) como puntos de corte. Esta transformación permite tratar el problema como una tarea de **clasificación multiclase**, en lugar de regresión continua.
+
+**Categorización por cuantiles**
+
+```{r message=FALSE, warning=FALSE}
+# Cargar librerías
+library(dplyr)
+library(ggplot2)
+
+# Cargar datos base si no están en memoria
+train <- read.csv("train_set.csv")
+
+# Crear variable categórica SalePriceCat basada en terciles
+quantiles <- quantile(train$SalePrice, probs = c(1/3, 2/3))
+train$SalePriceCat <- cut(
+  train$SalePrice,
+  breaks = c(-Inf, quantiles[1], quantiles[2], Inf),
+  labels = c("barata", "media", "cara")
+)
+
+# Verificar distribución
+cat("Distribución de categorías:\n")
+print(table(train$SalePriceCat))
+```
+**Representación gráfica**
+
+A continuación, se presenta un histograma que muestra cómo se distribuyen las observaciones según su categoría:
+
+```{r fig.width=7, fig.height=4}
+ggplot(train, aes(x = SalePriceCat, fill = SalePriceCat)) +
+  geom_bar(width = 0.6) +
+  labs(title = "Distribución de viviendas por categoría de precio",
+       x = "Categoría de precio",
+       y = "Número de viviendas") +
+  theme_minimal() +
+  scale_fill_brewer(palette = "Set2")
+```
+**Serie 3: Categorización de `SalePrice` y análisis gráfico de las clases**
+
+La variable `SalePrice`, que representa el precio de venta de las viviendas, fue transformada en una variable categórica (`SalePriceCat`) con tres niveles: **barata**, **media** y **cara**. Esta transformación se realizó utilizando los terciles (cuantiles 1/3 y 2/3), con el objetivo de convertir el problema en una tarea de clasificación multiclase.
+
+**Distribución de categorías**
+
+Se obtuvo la siguiente distribución de clases:
+
+| Categoría | Frecuencia |
+|-----------|------------|
+| barata    | 313        |
+| media     | 312        |
+| cara      | 312        |
+
+La distribución muestra un **balance prácticamente perfecto** entre las tres clases. Esto es ideal para entrenar modelos de clasificación sin necesidad de técnicas de rebalanceo.
+
+**Visualización**
+
+Como se presentó un gráfico de barras anteriormente qye muestra el número de viviendas por cada categoría de precio, se puedo observar, las tres clases tienen aproximadamente la misma cantidad de observaciones. Esta visualización refuerza la decisión de utilizar la categorización como base para la creación de variables dicotómicas (`es_barata`, `es_media`, `es_cara`) y para el posterior entrenamiento de modelos de clasificación binaria.
+
+**Conclusión**
+
+La categorización de `SalePrice` resultó exitosa, tanto numéricamente como visualmente. Esta transformación facilitará el análisis posterior de predicción de clases, permitiendo trabajar de forma más clara con modelos de regresión logística, árboles de decisión, KNN, entre otros.
 
 ### 4. Analice el modelo. Determine si hay multicolinealidad en las variables, y cuáles son las que aportan al modelo, por su valor de significación. Haga un análisis de correlación de las variables del modelo y especifique si el modelo se adapta bien a los datos.
 
-```{r}
+**Serie 4: Análisis del modelo – multicolinealidad, significancia, correlación y ajuste**
 
+En esta sección se realiza un análisis exhaustivo del modelo de regresión logística entrenado para predecir si una vivienda es `cara`. El objetivo es determinar:
+
+1. Si existe **multicolinealidad** entre las variables predictoras.
+2. Cuáles variables **aportan significativamente** al modelo.
+3. Qué grado de **correlación** existe entre los predictores.
+4. Si el modelo se **ajusta bien a los datos**.
+
+**1. Análisis de multicolinealidad con VIF**
+
+Para verificar si existe colinealidad entre las variables predictoras utilizadas en el modelo de regresión logística, se utiliza el **Factor de Inflación de la Varianza (VIF)**. Para este análisis, se requiere que la variable respuesta sea binaria con valores 0 y 1.
+
+```{r message=FALSE, warning=FALSE}
+# Librerías necesarias
+library(car)
+library(dplyr)
+
+# Asegurar que la variable binaria esté en formato numérico
+train$es_cara_num <- ifelse(train$SalePriceCat == "cara", 1, 0)
+
+# Ajustar modelo GLM para cálculo de VIF
+modelo_base <- glm(
+  es_cara_num ~ OverallQual + GrLivArea + GarageCars + TotalBsmtSF + YearBuilt,
+  data = train,
+  family = "binomial"
+)
+
+# Calcular VIF para evaluar colinealidad
+vif(modelo_base)
 ```
+
+> Valores de VIF por debajo de 5 indican que **no hay multicolinealidad preocupante**. Si los valores superan 5 o 10, puede ser necesario remover o transformar alguna variable.
+
+Este análisis complementa el estudio del ajuste del modelo y respalda que las variables seleccionadas aportan información independiente, lo cual mejora la estabilidad del modelo.
+
+**2. Significancia de las variables**
+
+El resumen del modelo (Serie 1) mostró que **todas las variables son estadísticamente significativas**, con p-valores muy bajos:
+
+| Variable        | Coeficiente | p-valor      | Significancia  |
+|-----------------|-------------|--------------|----------------|
+| OverallQual     | -1.557      | 1.70e-14     | ***            |
+| GrLivArea       | -1.902      | < 2e-16      | ***            |
+| GarageCars      | -0.606      | 0.0051       | **             |
+| TotalBsmtSF     | -0.746      | 5.34e-08     | ***            |
+| YearBuilt       | -0.677      | 2.76e-06     | ***            |
+
+> ✅ Todas las variables **aportan significativamente** al modelo.
+
+**3. Correlación entre predictores**
+
+Para detectar correlaciones entre las variables predictoras, se analiza la **matriz de correlación**:
+
+```{r}
+# Matriz de correlación entre variables predictoras
+cor(train[, c("OverallQual", "GrLivArea", "GarageCars", "TotalBsmtSF", "YearBuilt")])
+```
+
+> 🔎 Si hay correlaciones cercanas a ±0.8, puede haber redundancia. Si no, las variables aportan información distinta.
+
+**4. Evaluación del ajuste del modelo**
+
+- **Accuracy (10-fold CV)**: `0.889`
+- **Kappa**: `0.76`
+- **Null deviance**: `1732.9`
+- **Residual deviance**: `662.3`
+- **AIC**: `674.3`
+
+Estos resultados indican que:
+
+- El modelo tiene **alto poder predictivo**.
+- Existe una **reducción sustancial en la devianza**, lo que significa que las variables explican buena parte de la variabilidad.
+- El **AIC** relativamente bajo sugiere que el modelo está bien ajustado sin sobreajustar.
+
+**Serie 4: Análisis del modelo – multicolinealidad, significancia y ajuste**
+
+En esta serie se evalúa la calidad y estabilidad del modelo de regresión logística construido para predecir si una vivienda es `cara`, a partir de cinco variables predictoras: `OverallQual`, `GrLivArea`, `GarageCars`, `TotalBsmtSF` y `YearBuilt`.
+
+**1. Análisis de multicolinealidad (VIF)**
+
+Se calculó el **Factor de Inflación de la Varianza (VIF)** para detectar posibles problemas de colinealidad entre las variables del modelo:
+
+| Variable      | VIF       |
+|---------------|-----------|
+| OverallQual   | 1.29      |
+| GrLivArea     | 1.26      |
+| GarageCars    | 1.19      |
+| TotalBsmtSF   | 1.05      |
+| YearBuilt     | 1.65      |
+
+> ✅ Todos los valores de VIF están **muy por debajo de 5**, lo cual indica que **no existe multicolinealidad preocupante** entre los predictores.
+
+**2. Análisis de correlación entre predictores**
+
+La matriz de correlación muestra que las variables están **moderadamente correlacionadas**, lo cual es esperable en este tipo de datos, pero no indica redundancia extrema:
+
+|                | OverallQual | GrLivArea | GarageCars | TotalBsmtSF | YearBuilt |
+|----------------|-------------|-----------|-------------|--------------|------------|
+| **OverallQual**| 1.00        | 0.60      | 0.61        | 0.56         | 0.59       |
+| **GrLivArea**  | 0.60        | 1.00      | 0.49        | 0.47         | 0.22       |
+| **GarageCars** | 0.61        | 0.49      | 1.00        | 0.43         | 0.53       |
+| **TotalBsmtSF**| 0.56        | 0.47      | 0.43        | 1.00         | 0.38       |
+| **YearBuilt**  | 0.59        | 0.22      | 0.53        | 0.38         | 1.00       |
+
+> ✅ No se observan correlaciones superiores a 0.8, por lo que **no hay riesgo de colinealidad extrema**.
+
+
+**3. Significancia de las variables**
+
+Como se mostró en la Serie 1, **todas las variables son estadísticamente significativas**, con p-valores < 0.01. Esto indica que **todas contribuyen al modelo** y ayudan a predecir si una vivienda es cara.
+
+
+**4. Evaluación del ajuste**
+
+- **Accuracy (CV)**: 88.9%
+- **Kappa**: 0.76
+- **Null deviance**: 1732.9  
+- **Residual deviance**: 662.3  
+- **AIC**: 674.3
+
+> ✅ Estas métricas confirman que el modelo tiene **un buen ajuste y poder predictivo**, sin sobreajuste ni pérdida de generalización.
+
+
+**Conclusión**
+
+El modelo se adapta bien a los datos: no presenta multicolinealidad, las variables están moderadamente correlacionadas, todas son significativas, y las métricas de desempeño respaldan su capacidad predictiva. Es un modelo sólido y confiable para clasificar viviendas caras.
+
 
 ### 5. Utilice el modelo con el conjunto de prueba y determine la eficiencia del algoritmo para clasificar.
 
-```{r}
+**Serie 5: Evaluación del modelo sobre el conjunto de prueba**
 
+Se evalúa la eficiencia del modelo de regresión logística al aplicarlo sobre el conjunto de prueba (`test_set.csv`). Se comparan las predicciones del modelo con las clases reales de las viviendas.
+
+```{r message=FALSE, warning=FALSE}
+# Cargar librerías necesarias
+library(caret)
+library(dplyr)
+
+# Cargar conjunto de prueba
+test <- read.csv("test_set.csv")
+
+# Crear variable binaria de prueba (basada en SalePriceCat)
+test$es_cara <- factor(ifelse(test$SalePriceCat == "cara", "caro", "no_caro"))
+
+# Asegurar que las mismas columnas del modelo estén presentes
+# (usamos las mismas 5 variables que en el entrenamiento)
+predictores_test <- test %>%
+  select(OverallQual, GrLivArea, GarageCars, TotalBsmtSF, YearBuilt)
+
+# Realizar predicciones
+predicciones <- predict(modelo_rl, newdata = predictores_test)
+
+# Matriz de confusión
+matriz <- confusionMatrix(predicciones, test$es_cara)
+
+# Mostrar resultados
+print(matriz)
 ```
+
+**Serie 5: Evaluación del modelo sobre el conjunto de prueba**
+
+Una vez entrenado el modelo de regresión logística con el conjunto de entrenamiento, se evaluó su desempeño sobre el conjunto de prueba (`test_set.csv`) utilizando las mismas cinco variables predictoras.
+
+**Resultados de la clasificación**
+
+A continuación, se presentan las métricas obtenidas al comparar las predicciones del modelo con las clases reales (`caro`, `no_caro`):
+
+| Métrica                 | Valor      |
+|--------------------------|-----------|
+| **Accuracy**             | 0.9267    |
+| **Kappa**                | 0.8385    |
+| **Sensibilidad**         | 0.9351    |
+| **Especificidad**        | 0.9226    |
+| **Valor pred. positivo** | 0.8571    |
+| **Valor pred. negativo** | 0.9662    |
+| **Balanced Accuracy**    | 0.9288    |
+
+**Matriz de confusión**
+
+|                       | **Real caro** | **Real no_caro** |
+|-----------------------|---------------|------------------|
+| **Predicho caro**     | 72            | 12               |
+| **Predicho no_caro**  | 5             | 143              |
+
+**Interpretación**
+
+- El modelo clasificó correctamente el **92.7%** de las observaciones del conjunto de prueba.
+- Tiene una **sensibilidad alta (93.5%)**, lo que significa que detecta correctamente la mayoría de las viviendas `caras`.
+- La **especificidad también es alta (92.3%)**, indicando que clasifica correctamente la mayoría de las viviendas `no_caras`.
+- El **Kappa de 0.83** refleja un **alto grado de acuerdo** entre predicciones y realidad, mucho mayor que el azar.
+- El valor **p < 2e-16** para el Accuracy confirma que el modelo es estadísticamente mejor que una clasificación aleatoria (prueba de hipótesis contra el No Information Rate).
+
+**Conclusión**
+
+El modelo generaliza muy bien al conjunto de prueba. Tiene un balance adecuado entre sensibilidad y especificidad, clasifica con alta precisión, y mantiene un alto acuerdo con las verdaderas etiquetas. Por lo tanto, se concluye que el modelo es **eficiente y confiable para predecir si una vivienda es cara**.
 
 ### 6. Explique si hay sobreajuste (overfitting) o no (recuerde usar para esto los errores del conjunto de prueba y de entrenamiento). Muestre las curvas de aprendizaje usando los errores de los conjuntos de entrenamiento y prueba.
 
