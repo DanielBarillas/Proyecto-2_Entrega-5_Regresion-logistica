@@ -587,14 +587,146 @@ El modelo generaliza muy bien al conjunto de prueba. Tiene un balance adecuado e
 
 ### 6. Explique si hay sobreajuste (overfitting) o no (recuerde usar para esto los errores del conjunto de prueba y de entrenamiento). Muestre las curvas de aprendizaje usando los errores de los conjuntos de entrenamiento y prueba.
 
+
+Para esto vamos a usar la grafica de curva de aprendizaje. 
+```{r curva_de_aprendizaje}
+library(caret)
+library(dplyr)
+library(ggplot2)
+
+
+train_data <- read.csv("train_set.csv")
+test_data <- read.csv("test_set.csv")
+
+
+train_data$es_cara <- factor(ifelse(train_data$SalePriceCat == "cara", "caro", "no_caro"))
+test_data$es_cara <- factor(ifelse(test_data$SalePriceCat == "cara", "caro", "no_caro"))
+
+
+predictors <- c("OverallQual", "GrLivArea", "GarageCars", "TotalBsmtSF", "YearBuilt")
+
+
+learning_curve_fixed_test <- function(train_data, test_data, prop_seq = seq(0.1, 1, by = 0.1)) {
+  results <- data.frame(TrainProp = numeric(), TrainError = numeric(), TestError = numeric())
+
+  set.seed(123)
+  for (p in prop_seq) {
+    
+    idx <- sample(1:nrow(train_data), size = floor(p * nrow(train_data)))
+    train_split <- train_data[idx, ]
+
+    # Entrenar modelo
+    modelo <- train(as.formula(paste("es_cara ~", paste(predictors, collapse = "+"))),
+                    data = train_split,
+                    method = "glm",
+                    family = "binomial",
+                    trControl = trainControl(method = "none"))
+
+    # Predicciones
+    pred_train <- predict(modelo, newdata = train_split)
+    pred_test <- predict(modelo, newdata = test_data)
+
+    # Calcular errores
+    err_train <- mean(pred_train != train_split$es_cara)
+    err_test <- mean(pred_test != test_data$es_cara)
+
+    results <- rbind(results, data.frame(TrainProp = p, TrainError = err_train, TestError = err_test))
+  }
+
+  return(results)
+}
+
+curva <- learning_curve_fixed_test(train_data, test_data)
+
+ggplot(curva, aes(x = TrainProp)) +
+  geom_line(aes(y = TrainError, color = "Entrenamiento")) +
+  geom_line(aes(y = TestError, color = "Prueba")) +
+  labs(title = "Curva de aprendizaje (test fijo)",
+       x = "Proporción del conjunto de entrenamiento",
+       y = "Tasa de error",
+       color = "Conjunto") +
+  theme_minimal()
+
+
+```
+
+
+
+
+
+
+
 ```{r}
+# Cargar librerías necesarias
+library(ggplot2)
+library(ROCR)
+
+# Definir los porcentajes del conjunto de entrenamiento a utilizar
+porcentajes <- seq(0.1, 1, by = 0.1)
+resultados <- data.frame(Porcentaje = numeric(), Acc_train = numeric(), Acc_test = numeric())
+
+# Iterar sobre los diferentes porcentajes de datos de entrenamiento
+for (p in porcentajes) {
+  # Muestra aleatoria de datos de entrenamiento
+  set.seed(123)
+  idx <- sample(1:nrow(train), size = floor(p * nrow(train)))
+  train_parcial <- train[idx, ]
+  
+  # Asegurarse de que la variable 'es_cara' esté presente en train_parcial
+  train_parcial$es_cara <- factor(ifelse(train_parcial$SalePriceCat == "cara", "caro", "no_caro"))
+  
+  # Entrenar el modelo con los datos de entrenamiento parciales
+  modelo_rl <- train(
+    es_cara ~ OverallQual + GrLivArea + GarageCars + TotalBsmtSF + YearBuilt,
+    data = train_parcial,
+    method = "glm",
+    family = "binomial",
+    trControl = trainControl(method = "none"),  # Sin validación cruzada en este caso
+    metric = "Accuracy",
+    preProcess = c("center", "scale", "medianImpute")
+  )
+  
+  # Predicciones en el conjunto de entrenamiento
+  prob_train <- predict(modelo_rl, newdata = train_parcial, type = "prob")[,2]
+  pred_train <- prediction(prob_train, train_parcial$es_cara)
+  perf_train <- performance(pred_train, measure = "acc")
+  acc_train <- max(perf_train@y.values[[1]])
+  
+  # Asegurarse de que la variable 'es_cara' esté presente en test
+  test$es_cara <- factor(ifelse(test$SalePriceCat == "cara", "caro", "no_caro"))
+  
+  # Predicciones en el conjunto de prueba
+  prob_test <- predict(modelo_rl, newdata = test, type = "prob")[,2]
+  pred_test <- prediction(prob_test, test$es_cara)
+  perf_test <- performance(pred_test, measure = "acc")
+  acc_test <- max(perf_test@y.values[[1]])
+  
+  
+  resultados <- rbind(resultados, data.frame(Porcentaje = p, Acc_train = acc_train, Acc_test = acc_test))
+}
+
+# Graficar la curva de aprendizaje
+ggplot(resultados, aes(x = Porcentaje)) +
+  geom_line(aes(y = Acc_train, color = "Entrenamiento"), size = 1) +
+  geom_line(aes(y = Acc_test, color = "Prueba"), size = 1) +
+  geom_point(aes(y = Acc_train, color = "Entrenamiento")) +
+  geom_point(aes(y = Acc_test, color = "Prueba")) +
+  labs(
+    title = "Curva de Aprendizaje: Comparación entre Entrenamiento y Prueba",
+    x = "Porcentaje del conjunto de entrenamiento",
+    y = "Precisión (Accuracy)",
+    color = "Conjunto"
+  ) +
+  theme_minimal()
+
+
+
 
 ```
 
 ### 7. Haga un tuneo del modelo para determinar los mejores parámetros, recuerde que los modelos de regresión logística se pueden regularizar como los de regresión lineal.
 
 ```{r}
-
 ```
 
 ### 8. Haga un análisis de la eficiencia del algoritmo usando una matriz de confusión. Tenga en cuenta la efectividad, donde el algoritmo se equivocó más, donde se equivocó menos y la importancia que tienen los errores, el tiempo y la memoria consumida. Para esto último puede usar “profvis” si trabaja con R y “cProfile” en Python.
