@@ -29,6 +29,7 @@ Para este punto, ya se ha realizado el proceso para descargar del sitio web: [Ho
   str(train_data)    # Muestra la estructura del dataset
   summary(train_data) # Resumen estadístico
 ```
+
 ### 1. Cree una variable dicotómica por cada una de las categorías de la variable respuesta categórica que creó en hojas anteriores. Debería tener 3 variables dicotómicas (valores 0 y 1) una que diga si la vivienda es cara o no, media o no, económica o no.
 
 **Codificación de variables dicotómicas**
@@ -93,6 +94,7 @@ modelo_rl_final <- train(
 print(modelo_rl_final)
 summary(modelo_rl_final$finalModel)
 ```
+
 Este modelo es ahora completamente funcional, con una variable respuesta válida (`es_cara`) y predictores seleccionados por su relevancia. Se entrena utilizando validación cruzada de 10 folds con balanceo (upsampling) para evitar el desbalance de clases. Los resultados mostrarán coeficientes significativos y métricas de desempeño útiles como `Accuracy`.
 
 **Serie 1: Creación de variables dicotómicas y modelo para viviendas caras**
@@ -190,6 +192,7 @@ cat("Observaciones en el conjunto de prueba:", nrow(test), "\n")
 str(train$SalePrice)
 table(train$SalePrice)
 ```
+
 El uso de estos mismos conjuntos permite evaluar el desempeño de los modelos en condiciones equivalentes, facilitando una comparación válida entre algoritmos como Árboles de Decisión, Random Forest, Naive Bayes, KNN y Regresión Logística, todos entrenados y probados con estos mismos datos.
 
 **Serie 2: Análisis de la variable `SalePrice` en el conjunto de entrenamiento**
@@ -348,6 +351,7 @@ train$SalePriceCat <- cut(
 cat("Distribución de categorías:\n")
 print(table(train$SalePriceCat))
 ```
+
 **Representación gráfica**
 
 A continuación, se presenta un histograma que muestra cómo se distribuyen las observaciones según su categoría:
@@ -361,6 +365,7 @@ ggplot(train, aes(x = SalePriceCat, fill = SalePriceCat)) +
   theme_minimal() +
   scale_fill_brewer(palette = "Set2")
 ```
+
 **Serie 3: Categorización de `SalePrice` y análisis gráfico de las clases**
 
 La variable `SalePrice`, que representa el precio de venta de las viviendas, fue transformada en una variable categórica (`SalePriceCat`) con tres niveles: **barata**, **media** y **cara**. Esta transformación se realizó utilizando los terciles (cuantiles 1/3 y 2/3), con el objetivo de convertir el problema en una tarea de clasificación multiclase.
@@ -587,9 +592,7 @@ El modelo generaliza muy bien al conjunto de prueba. Tiene un balance adecuado e
 
 ### 6. Explique si hay sobreajuste (overfitting) o no (recuerde usar para esto los errores del conjunto de prueba y de entrenamiento). Muestre las curvas de aprendizaje usando los errores de los conjuntos de entrenamiento y prueba.
 
-
 Para esto vamos a usar la grafica de curva de aprendizaje. 
-
 
 ```{r}
 # Cargar librerías necesarias
@@ -663,18 +666,12 @@ ggplot(resultados, aes(x = Porcentaje)) +
     color = "Conjunto"
   ) +
   theme_minimal()
-
-
-
-
 ```
-
-#### Analisis de la Curva 
+**Analisis de la Curva**
 
 Si analizamos la gráfica con atención, podemos notar que las curvas de error correspondientes al conjunto de entrenamiento y al de prueba no están convergiendo adecuadamente. De hecho, hay un comportamiento anómalo: a medida que el modelo avanza en su proceso de entrenamiento, su precisión sobre el conjunto de entrenamiento está disminuyendo, mientras que la precisión sobre el conjunto de prueba tiende a mejorar levemente o a estabilizarse.
 
 Este comportamiento es característico de un subajuste (underfitting). El subajuste ocurre cuando el modelo no es capaz de capturar correctamente los patrones subyacentes en los datos, lo que se traduce en un rendimiento pobre tanto en los datos de entrenamiento como en los de prueba, pero aqui puede deberse en su mejora debido a los datos de ruido estadistico. Lo que podemos hacer es mejorar el modelo ajustando sus hiperparametros para que mejore en sus datos de entrenamiento.  
-
 
 ### 7. Haga un tuneo del modelo para determinar los mejores parámetros, recuerde que los modelos de regresión logística se pueden regularizar como los de regresión lineal.
 
