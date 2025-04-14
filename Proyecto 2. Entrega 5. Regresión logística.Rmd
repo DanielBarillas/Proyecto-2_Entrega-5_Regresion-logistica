@@ -676,13 +676,189 @@ Este comportamiento es característico de un subajuste (underfitting). El subaju
 ### 7. Haga un tuneo del modelo para determinar los mejores parámetros, recuerde que los modelos de regresión logística se pueden regularizar como los de regresión lineal.
 
 ```{r}
+
+library(dplyr)
+library(caret)
+library(glmnet)
+
+
+set.seed(123)
+
+
+train <- read.csv("train_set.csv")
+
+
+train <- train %>%
+  mutate(
+    es_cara = factor(ifelse(SalePriceCat == "cara", "caro", "no_caro"))
+  )
+
+
+ctrl <- trainControl(
+  method = "cv",
+  number = 10,
+  sampling = "up",
+  savePredictions = TRUE
+)
+
+
+grid <- expand.grid(
+  alpha = c(0, 0.5, 1),  # Ridge, ElasticNet, Lasso
+  lambda = 10^seq(-4, 1, length = 20)
+)
+
+# Entrenar con regularización
+modelo_rl <- train(
+  es_cara ~ OverallQual + GrLivArea + GarageCars + TotalBsmtSF + YearBuilt,
+  data = train,
+  method = "glmnet",
+  trControl = ctrl,
+  preProcess = c("center", "scale", "medianImpute"),
+  tuneGrid = grid,
+  metric = "Accuracy",
+  family = "binomial"
+)
+
+
+print(modelo_rl$bestTune)
+
+
+plot(modelo_rl)
+
+
+modelo_rl$finalModel
+
+
 ```
+
+#### Analisis del tuneo 
+Podemos ver que el alpha y el lambda del mejor modelo son 0.5 y de 0.006951928 respectivamente. Al hacer la regularizacion  el parametro lambda conforme decrece podemos ver que el  ridge (alpha = 0) es el mejor enfoque para el modelo, ya que mantiene alta precisión y estabilidad sin importar el nivel de regularización. Y no decae tanto como los otros.
+
+El mejor lambda probablemente está en el rango bajo (cerca de 0.01 o menos), donde se obtiene la mejor precisión. Lo que se puede ver con el lambda que usamos al final
+
 
 ### 8. Haga un análisis de la eficiencia del algoritmo usando una matriz de confusión. Tenga en cuenta la efectividad, donde el algoritmo se equivocó más, donde se equivocó menos y la importancia que tienen los errores, el tiempo y la memoria consumida. Para esto último puede usar “profvis” si trabaja con R y “cProfile” en Python.
 
+#### Matriz de Confusion
+
 ```{r}
 
+
+library(dplyr)
+library(caret)
+
+
+set.seed(123)
+
+
+train <- read.csv("train_set.csv")
+
+
+train <- train %>%
+  mutate(
+    es_cara = ifelse(SalePriceCat == "cara", 1, 0)
+  )
+
+
+train$es_cara <- factor(ifelse(train$es_cara == 1, "caro", "no_caro"))
+
+# Configuración de validación cruzada estratificada con balanceo
+ctrl <- trainControl(
+  method = "cv",
+  number = 10,
+  sampling = "up",  # balanceo por upsampling
+  savePredictions = TRUE
+)
+
+
+modelo_tuneado <- train(
+  es_cara ~ OverallQual + GrLivArea + GarageCars + TotalBsmtSF + YearBuilt,
+  data = train,
+  method = "glmnet",  
+  family = "binomial",
+  trControl = ctrl,
+  metric = "Accuracy",
+  preProcess = c("center", "scale", "medianImpute"),
+  tuneGrid = expand.grid(alpha = 0.5, lambda = 0.006951928) 
+)
+
+# Resultados del modelo
+print(modelo_tuneado)
+summary(modelo_tuneado$finalModel)
+
+
+
 ```
+
+```{r}
+
+library(caret)
+library(dplyr)
+
+
+test <- read.csv("test_set.csv")
+
+
+test$es_cara <- factor(ifelse(test$SalePriceCat == "cara", "caro", "no_caro"))
+
+
+predictores_test <- test %>%
+  select(OverallQual, GrLivArea, GarageCars, TotalBsmtSF, YearBuilt)
+
+
+predicciones <- predict(modelo_tuneado, newdata = predictores_test)
+
+
+matriz <- confusionMatrix(predicciones, test$es_cara)
+
+# Mostrar resultados
+print(matriz)
+```
+
+#### Analisis de matriz de confusion
+
+Como podemos ver el accurrancy y el kappa salio exactamente igual que nuestro modelo anterior sin tunear. Tambien podemos ver que en no disminuyo su confusion en la matriz de confusion, lo cual indica que realmente llegamos hasta el mejor modelo posible para el conjunto de datos. Lo cual no s indica que en realidad no hay mucha diferencia entre este modelo y el anterior
+
+#### Analisis del tiempo
+
+```{r tuneado}
+library(profvis)
+profvis({
+  modelo_tuneado <- train(
+    es_cara ~ OverallQual + GrLivArea + GarageCars + TotalBsmtSF + YearBuilt,
+    data = train,
+    method = "glmnet",
+    trControl = ctrl,
+    preProcess = c("center", "scale", "medianImpute"),
+    tuneGrid = data.frame(alpha = 0.5, lambda = 0.006951928),
+    metric = "Accuracy",
+    family = "binomial"
+  )
+})
+```
+
+```{r no_tuneado}
+library(profvis)
+profvis({
+  modelo_rl <- train(
+    es_cara ~ OverallQual + GrLivArea + GarageCars + TotalBsmtSF + YearBuilt,
+    data = train,
+    method = "glm",
+    trControl = ctrl,
+    preProcess = c("center", "scale", "medianImpute"),
+    metric = "Accuracy",
+    family = "binomial"
+  )
+})
+```
+
+#### Analisis profis
+
+Podemos observar que el modelo actual tiene menos cuellos de botella que el que no esta tuneado, aunque tiene mas llamadas a funcion, si hay mejor distribucion de carga que el que no esta tuneado. 
+
+Eso si usa mas tiempo pero mucho menos memoria que el que no tiene tuneo. Por ejemplo al crear el modelo usa el no tuneado 200 ms de carga, y 67 MB en cambio el tuneado solo usa 19MB pero se tarda 270 ms , por lo cual si es bueno al optimizar recursos pero puede ser que se tarde mucho mas tiempo
+
+
 
 ### 9. Determine cual de todos los modelos es mejor, puede usar AIC y BIC para esto, además de los parámetros de la matriz de confusión y los del profiler.
 
