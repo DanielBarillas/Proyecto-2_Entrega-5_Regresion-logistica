@@ -2,7 +2,7 @@
 
 ---
 
-## 🧠 Tema: Predicción de Viviendas Caras
+# 🧠 Proyecto de Regresión Logística: Predicción de Viviendas Caras
 
 ---
 
@@ -10,7 +10,7 @@
 **Facultad:** Ingeniería  
 **Departamento:** Ciencias de la Computación  
 **Curso:** Minería de Datos (CC3074) - Sección 10  
-**Semestre:** II – 2025  
+**Semestre:** I – 2025  
 **Proyecto:** Proyecto #2  
 **Entrega:** Entrega 5 – Regresión Logística  
 
@@ -24,51 +24,73 @@
 
 ## 📌 Descripción del Proyecto  
 
-Se trabajó con los datos del concurso **"House Prices: Advanced Regression Techniques"** de Kaggle. El objetivo de esta entrega fue construir un modelo de **regresión logística binaria** para predecir si una vivienda es **cara** en función de variables clave.
-
-Este análisis se construyó sobre las entregas anteriores (Árboles de decisión, Naive Bayes, KNN), utilizando los mismos conjuntos `train_set.csv` y `test_set.csv`.
+Se trabajó con los datos del concurso **"House Prices: Advanced Regression Techniques"** de Kaggle. El objetivo de esta entrega fue construir un modelo de **regresión logística binaria** para predecir si una vivienda es **cara** en función de variables clave.  
+Este análisis se basó en entregas anteriores (Árboles de Decisión, Naive Bayes, KNN), utilizando los mismos conjuntos `train_set.csv` y `test_set.csv`.
 
 ---
 
 ## 🔎 Actividades Realizadas  
 
-### 1. Creación de variables dicotómicas  
-- Se transformó `SalePriceCat` (categórica: `barata`, `media`, `cara`) en 3 variables binarias:
-  - `es_barata`
-  - `es_media`
-  - `es_cara`
-- Estas variables permitieron modelar cada clase por separado.
+### 🔢 Serie 1: Creación de Variables Dicotómicas  
+- Se generaron 3 variables binarias: `es_barata`, `es_media`, `es_cara`, a partir de `SalePriceCat`.
+- Se verificó que las etiquetas fueran correctas mediante tablas cruzadas.
 
-### 2. Reutilización de conjuntos  
-- Se reutilizaron los conjuntos de entrenamiento y prueba generados en entregas anteriores.
-- Se aseguró la reproducibilidad con semilla fija.
+### 📁 Serie 2: Reutilización de los Conjuntos  
+- Se usaron los mismos archivos `train_set.csv` (937 casos) y `test_set.csv` (232 casos) definidos con una semilla fija.
 
-### 3. Modelo de regresión logística  
-- Se entrenó un modelo para predecir `es_cara` (vivienda cara o no).
-- Se usaron 5 predictores clave: `OverallQual`, `GrLivArea`, `GarageCars`, `TotalBsmtSF`, `YearBuilt`.
-- Validación cruzada de 10 folds, preprocesamiento (centrado, escalado, imputación) y upsampling.
+### 📈 Serie 3: Modelo de Regresión Logística  
+- Se entrenó un modelo binario (`es_cara`) usando validación cruzada (10-fold) y balanceo (`upsampling`).
+- Se incluyeron 5 variables predictoras: `OverallQual`, `GrLivArea`, `GarageCars`, `TotalBsmtSF`, `YearBuilt`.
 
-### 4. Análisis del modelo  
-- Se calculó el VIF para cada predictor → **no hubo multicolinealidad** (todos los VIF < 2).
-- Todos los coeficientes fueron estadísticamente significativos (`p < 0.01`).
-- La matriz de correlación mostró relaciones moderadas, sin colinealidades altas.
-- Ajuste del modelo:
-  - Accuracy (CV): 88.9%
-  - AIC: 674.3
-  - Reducción sustancial de la devianza
+### 📊 Serie 4: Análisis del Modelo  
+- Se analizó la multicolinealidad con **VIF**: todos los valores fueron menores a 2.
+- Se analizó la **significancia estadística** de los coeficientes (todos con `p < 0.01`).
+- Se graficó la **matriz de correlación** para detectar redundancia entre predictores.
+- El modelo mostró buen ajuste:
+  - **Accuracy (CV)**: 88.9%  
+  - **Kappa**: 0.76  
+  - **AIC**: 674.3
 
-### 5. Evaluación en conjunto de prueba  
-- El modelo clasificó correctamente el **92.67%** de los casos.
-- Matriz de confusión:
-  - `caro` predicho correctamente: 72
-  - `no_caro` predicho correctamente: 143
-- Kappa: 0.8385  
-- Balanced Accuracy: 92.88%
+### 🧪 Serie 5: Evaluación en Conjunto de Prueba  
+- Accuracy: **92.67%**
+- Balanced Accuracy: **92.88%**
+- Sensibilidad: **93.5%**, Especificidad: **92.2%**
+- Kappa: **0.8385**
+- La matriz de confusión mostró solo **17 errores de clasificación**.
 
-### 6. Curvas de aprendizaje y sobreajuste  
-- Se generaron curvas de error y precisión para entrenamiento vs prueba.
-- No se observó overfitting: las curvas convergen.
-- El modelo generaliza correctamente y no depende excesivamente del conjunto de entrenamiento.
+### 📉 Serie 6: Curvas de Aprendizaje y Overfitting  
+- Se entrenaron modelos sobre subconjuntos crecientes del entrenamiento.
+- Se graficaron curvas de error y precisión.
+- No se detectó **sobreajuste**: las curvas convergen y se mantienen estables.
+
+### 🔍 Serie 7: Evaluación Visual del Modelo  
+- Se utilizó `ROCR` para graficar curvas ROC y comparar precisión.
+- El AUC fue alto, reforzando la buena capacidad discriminativa del modelo.
+
+### 📦 Serie 8: Análisis de Variables Relevantes  
+- Se filtraron las 5 variables más significativas tras pruebas previas.
+- Estas mostraron fuerte correlación con `SalePrice` y alta importancia en modelos anteriores.
+
+### 🧹 Serie 9: Transformación de `SalePrice`  
+- `SalePrice` fue categorizada en terciles (`barata`, `media`, `cara`) usando cuantiles.
+- Se verificó la distribución balanceada: aprox. 1/3 en cada categoría.
+
+### 📉 Serie 10: Validación Cruzada  
+- Se mantuvo la metodología de validación cruzada 10-fold con balanceo.
+- Se evitó la varianza alta entre particiones, asegurando reproducibilidad.
+
+### 📤 Serie 11: Preparación Final de Predicciones  
+- Se aplicó el modelo sobre el conjunto de prueba para predecir `es_cara`.
+- Las predicciones fueron almacenadas y comparadas con valores reales para evaluación.
+
+---
+
+## 📦 Limpieza y Transformación de Datos  
+
+- Categorización de `SalePrice` en 3 niveles con terciles.
+- Normalización y estandarización de variables numéricas.
+- Imputación de valores faltantes con la mediana.
+- Conversión de variables binarias a factores (`factor`) para uso con `caret`.
 
 ---
 
@@ -79,13 +101,10 @@ Este análisis se construyó sobre las entregas anteriores (Árboles de decisió
 - **Librerías:** `caret`, `dplyr`, `ggplot2`, `ROCR`, `car`  
 - **Datos:** Kaggle House Prices (`train.csv`)  
 - **Control de versiones:** GitHub  
-
----
-
 ## 📢 Hallazgos Destacados  
 
-✔️ Todas las variables utilizadas en el modelo aportan significativamente a la predicción.  
-✔️ El modelo no presenta multicolinealidad y se ajusta bien a los datos.  
-✔️ La clasificación en el conjunto de prueba tiene una alta precisión (93%).  
-✔️ No se detectó sobreajuste según las curvas de aprendizaje.  
-✔️ El enfoque de clasificación binaria permitió obtener un modelo simple y potente.
+✔️ Todas las variables utilizadas en el modelo son significativas (`p < 0.01`).  
+✔️ No hay multicolinealidad según VIF.  
+✔️ Accuracy en prueba superior al 92%.  
+✔️ No se observó overfitting.  
+✔️ La estrategia de clasificación binaria mostró un excelente desempeño y balance.  
