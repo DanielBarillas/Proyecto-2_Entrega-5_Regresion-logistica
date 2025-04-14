@@ -7,12 +7,15 @@ output:
   pdf_document:
     latex_engine: xelatex
   html_document: default
+always_allow_html: true
 date: "2025-03-14"
 header-includes:
    - \usepackage{fvextra}
    - \DefineVerbatimEnvironment{Highlighting}{Verbatim}{breaklines,commandchars=\\\{\}}
 repository: "https://github.com/DanielBarillas/Proyecto-2_Entrega-5_Regresion-logistica.git"
 ---
+
+
 
 ### Enlace al Repositorio del proyecto 2 - Entrega 5 de minería de datos del Grupo #1
 [Repositorio en GitHub](https://github.com/DanielBarillas/Proyecto-2_Entrega-5_Regresion-logistica.git)
@@ -708,7 +711,7 @@ grid <- expand.grid(
 )
 
 # Entrenar con regularización
-modelo_rl <- train(
+modelo_tuneado <- train(
   es_cara ~ OverallQual + GrLivArea + GarageCars + TotalBsmtSF + YearBuilt,
   data = train,
   method = "glmnet",
@@ -720,13 +723,13 @@ modelo_rl <- train(
 )
 
 
-print(modelo_rl$bestTune)
+print(modelo_tuneado$bestTune)
 
 
-plot(modelo_rl)
+plot(modelo_tuneado)
 
 
-modelo_rl$finalModel
+modelo_tuneado$finalModel
 
 
 ```
@@ -824,7 +827,7 @@ Como podemos ver el accurrancy y el kappa salio exactamente igual que nuestro mo
 ```{r tuneado}
 library(profvis)
 profvis({
-  modelo_tuneado <- train(
+  modelo_tuneado_t <- train(
     es_cara ~ OverallQual + GrLivArea + GarageCars + TotalBsmtSF + YearBuilt,
     data = train,
     method = "glmnet",
@@ -840,7 +843,7 @@ profvis({
 ```{r no_tuneado}
 library(profvis)
 profvis({
-  modelo_rl <- train(
+  modelo_rl_t <- train(
     es_cara ~ OverallQual + GrLivArea + GarageCars + TotalBsmtSF + YearBuilt,
     data = train,
     method = "glm",
@@ -862,21 +865,432 @@ Eso si usa mas tiempo pero mucho menos memoria que el que no tiene tuneo. Por ej
 
 ### 9. Determine cual de todos los modelos es mejor, puede usar AIC y BIC para esto, además de los parámetros de la matriz de confusión y los del profiler.
 
+#### Parametros de AIC y BIC de ambos modelos
+
 ```{r}
+# Modelo sin regularización (glm)
+
+modelo_rl <- train(
+    es_cara ~ OverallQual + GrLivArea + GarageCars + TotalBsmtSF + YearBuilt,
+    data = train,
+    method = "glm",
+    trControl = ctrl,
+    preProcess = c("center", "scale", "medianImpute"),
+    metric = "Accuracy",
+    family = "binomial"
+  )
+    
+aic_no_tuneado <- AIC(modelo_rl$finalModel)
+bic_no_tuneado <- BIC(modelo_rl$finalModel)
+
+cat("Modelo sin regularización (glm):\n")
+cat("AIC:", aic_no_tuneado, "\n")
+cat("BIC:", bic_no_tuneado, "\n")
+
+
+library(glmnet)
+
+# Mnera manual
+X <- model.matrix(
+  es_cara ~ OverallQual + GrLivArea + GarageCars + TotalBsmtSF + YearBuilt,
+  data = train
+)[, -1]  
+
+y <- ifelse(train$es_cara == "caro", 1, 0)
+
+
+eta <- predict(modelo_tuneado$finalModel, newx = X, s = modelo_tuneado$bestTune$lambda)
+p <- 1 / (1 + exp(-eta))  # función sigmoide
+p <- pmin(pmax(p, 1e-15), 1 - 1e-15)
+
+# Log-verosimilitud de regresión logística
+loglik <- sum(y * log(p) + (1 - y) * log(1 - p))
+
+# Número de parámetros no nulos (coeficientes activos)
+coef_lasso <- coef(modelo_tuneado$finalModel, s = modelo_tuneado$bestTune$lambda)
+k <- sum(coef_lasso != 0)  # incluye intercepto
+
+# Número de observaciones
+n <- nrow(train)
+
+# Cálculo manual de AIC y BIC
+aic_tuneado <- -2 * loglik + 2 * k
+bic_tuneado <- -2 * loglik + log(n) * k
+
+cat("Modelo con regularización (glmnet):\n")
+cat("AIC (estimado):", aic_tuneado, "\n")
+cat("BIC (estimado):", bic_tuneado, "\n")
 
 ```
+
+#### Analisis de eficiencia
+
+Podemos ver que entre los 2 comparando el AIC y BIC el que mejor le va es el de sin regularizacion. Pero ojo esto puede ser engañoso, primero porque no tratamos de manera convensional el loglik, sino que tuvimos que estimarlo, y realmente si se quiere evitar el overfitting es preferible el segundo por su bajo AIC y BIC. 
+
+Tomando en cuenta otros aspectos tambien vemos que el modelo tuneado es mejor generalizable con estos AIC, BIC, mejora un poco el acurrancy solo un !% y en el acurrancy del train un 3%. Y ademas es mas eficiente en el manejo de memoria aunque no de tiempo. 
+
+Por lo cual el mejor modelo es el regularizado y tuneado debido a estos otros factores.
 
 ### 10. Haga un modelo de regresión logística para la variable categórica para el precio de las casas (categorías: barata, media y cara). Asegúrese de tunearlo para obtener el mejor modelo posible.
 
+
+Sin realizar tuneo y cv.
+
 ```{r}
 
+library(nnet)
+library(caret)
+library(dplyr)
+
+train <- read.csv("train_set.csv")
+
+
+
+train$PrecioCategoria <- cut(train$SalePrice,
+  breaks = quantile(train$SalePrice, probs = c(0, 1/3, 2/3, 1)),
+  labels = c("barata", "media", "cara"),
+  include.lowest = TRUE
+)
+modelo <- multinom(PrecioCategoria ~ GrLivArea + OverallQual + YearBuilt, data = train)
+summary(modelo)
+
+predicciones <- predict(modelo, newdata = train)
+
+
+confusion_matrix <- table(Predicho = predicciones, Real = train$PrecioCategoria)
+print(confusion_matrix)
+
+
+
+
+# Accuracy (Precisión total)
+accuracy <- sum(diag(confusion_matrix)) / sum(confusion_matrix)
+cat("Accuracy del modelo:", round(accuracy * 100, 2), "%\n")
+
 ```
+
+
+El modelo tuneado sera
+
+```{r}
+library(nnet)
+library(caret)
+library(dplyr)
+
+
+train <- read.csv("train_set.csv")
+
+
+train$PrecioCategoria <- cut(train$SalePrice,
+  breaks = quantile(train$SalePrice, probs = c(0, 1/3, 2/3, 1)),
+  labels = c("barata", "media", "cara"),
+  include.lowest = TRUE
+)
+
+
+train$PrecioCategoria <- as.factor(train$PrecioCategoria)
+
+
+predictoras <- c("GrLivArea", "OverallQual", "YearBuilt")
+
+
+control <- trainControl(method = "cv", number = 5)
+
+# Modelo tuneado
+modelo_tuneado <- train(
+  PrecioCategoria ~ .,
+  data = train[, c("PrecioCategoria", predictoras)],
+  method = "multinom",
+  trControl = control,
+  preProcess = c("center", "scale"),
+  trace = FALSE
+)
+
+
+print(modelo_tuneado$bestTune)
+
+```
+
+
+Podemos ver que el decay es de 0.1 y entonces creamos el modelo
+
+```{r}
+library(nnet)
+library(caret)
+library(dplyr)
+
+# Leer los datos
+train <- read.csv("train_set.csv")
+
+
+
+
+train$PrecioCategoria <- cut(train$SalePrice,
+  breaks = quantile(train$SalePrice, probs = c(0, 1/3, 2/3, 1)),
+  labels = c("barata", "media", "cara"),
+  include.lowest = TRUE
+)
+
+# Definir la fórmula del modelo
+formula <- PrecioCategoria ~ GrLivArea + OverallQual + YearBuilt
+
+# Definir los parámetros de entrenamiento
+control <- trainControl(method = "cv", number = 10)  # Validación cruzada con 10 pliegues
+
+# Ajustar el modelo utilizando train() para búsqueda de hiperparámetros con 'decay'
+modelo_cv <- train(
+  formula,
+  data = train,
+  method = "nnet",  # Usando la red neuronal
+  trControl = control,
+  tuneGrid = expand.grid(decay = 0.1, size = c(5, 10, 15)),  # Probar con distintos tamaños de capa oculta
+  linout = TRUE  # Esto asegura que la salida sea continua
+)
+
+
+print(modelo_cv)
+
+
+predicciones <- predict(modelo_cv, newdata = train)
+
+# Crear la matriz de confusión
+confusion_matrix <- table(Predicho = predicciones, Real = train$PrecioCategoria)
+print(confusion_matrix)
+
+
+accuracy <- sum(diag(confusion_matrix)) / sum(confusion_matrix)
+cat("Accuracy del modelo:", round(accuracy * 100, 2), "%\n")
+
+```
+
+Ahora lo probamos con test
+
+```{r}
+library(nnet)
+library(caret)
+library(dplyr)
+
+
+test <- read.csv("test_set.csv")
+
+
+test$PrecioCategoria <- cut(test$SalePrice,
+  breaks = quantile(train$SalePrice, probs = c(0, 1/3, 2/3, 1)),  # Usar los mismos cortes que en train
+  labels = c("barata", "media", "cara"),
+  include.lowest = TRUE
+)
+
+
+predicciones_test <- predict(modelo_cv, newdata = test)
+
+
+confusion_matrix_test <- table(Predicho = predicciones_test, Real = test$PrecioCategoria)
+print(confusion_matrix_test)
+
+
+accuracy_test <- sum(diag(confusion_matrix_test)) / sum(confusion_matrix_test)
+cat("Accuracy en el conjunto de prueba:", round(accuracy_test * 100, 2), "%\n")
+```
+
+
+
+#### Analisis del Modelo
+
+Podemos ver que nuestro modelo es bastante bueno, despues de hacer tunning nos dio un decay de 0.1 y un accurrancy de 74% con el train y con test de 70% en pocas palabras es un buen modelo pero es bastante mediocre. Aun asi para ser una clasificacion logro ser muy eficiente ya que normalmente la regresion logistica es buena solo con clasificacion binaria. 
+
+En lo que mas se equivoco nuestro modelo es en diferenciar medias de caras en donde ocurrio el mayor de los falsos positivos. 
+
 
 ### 11. Compare la eficiencia del modelo anterior con los de clasificación de las entregas anteriores ¿Cuál se demoró más en procesar?¿Cuál se equivocó más?¿Cuál se equivocó menos?¿por qué? 
 
+
+Con el siguiente grafico se analiza los modelos de clasificacion comparando con el de regresion logistica
+
 ```{r}
+
+library(ggplot2)
+# Datos de clasificación
+clasificacion <- data.frame(
+Modelo = c("Regresion Logistica","KNN","Naive Bayes", "Random Forest", "Árbol de Clasificación"),
+Accuracy = c(0.7013, 0.67, 0.8041237, 0.9816934, 0.7414188)
+)
+# Gráfico de Accuracy (Clasificación)
+ggplot(clasificacion, aes(x = Modelo, y = Accuracy, fill = Modelo)) +
+geom_bar(stat = "identity", color = "black", alpha = 0.8) +
+labs(title = "Comparación de Accuracy en Modelos de Clasificación",
+x = "Modelo",
+y = "Accuracy") +
+theme_minimal() +
+theme(legend.position = "none")
+
+
+
+```
+
+#### Analisis de Resultados
+
+Podemos ver que nuestra Regresion Logistica el acurrancy es peor que varios modelos pero sorpresivamente mucho mejor que KNN. Esto muy posiblemenete a que realmente la regresion logistica no es muy buena para clasificar que para predecir . Por ende sigue siendo el Random Forest el que domina al resto de regresiones. 
+
+El que se equivoco menos es Random Forest y KNN es el que se equivoco mas. Esto porque utiliza múltiples árboles de decisión para hacer predicciones. Esto le da una ventaja al ser menos propenso a sobreajustarse a los datos, ya que combina varias decisiones basadas en distintas submuestras de los datos a diferencia del KNN. 
+
+Es el mas rapido de todos porque solo es una regresion logistica , pero el problema es que no es tan preciso a diferencia de los otros modelos
+
+De hecho lo podemos ver aqui :
+
+```{r}
+# Cargar librerías necesarias
+library(caret)
+library(dplyr)
+
+# Cargar datasets
+train_data <- read.csv("train_set.csv", stringsAsFactors = FALSE)
+test_data <- read.csv("test_set.csv", stringsAsFactors = FALSE)
+
+# Variables a usar
+features <- c("GrLivArea", "OverallQual", "TotRmsAbvGrd")
+
+# Imputación de valores NA
+for (feature in features) {
+  train_data[[feature]][is.na(train_data[[feature]])] <- median(train_data[[feature]], na.rm = TRUE)
+  test_data[[feature]][is.na(test_data[[feature]])] <- median(test_data[[feature]], na.rm = TRUE)
+}
+
+# Crear variable categórica (Barata, Media, Cara)
+train_data$PriceCategory <- cut(
+  train_data$SalePrice,
+  breaks = quantile(train_data$SalePrice, probs = c(0, 1/3, 2/3, 1), na.rm = TRUE),
+  labels = c("Barata", "Media", "Cara"),
+  include.lowest = TRUE
+)
+test_data$PriceCategory <- cut(
+  test_data$SalePrice,
+  breaks = quantile(train_data$SalePrice, probs = c(0, 1/3, 2/3, 1), na.rm = TRUE),
+  labels = c("Barata", "Media", "Cara"),
+  include.lowest = TRUE
+)
+train_data$PriceCategory <- as.factor(train_data$PriceCategory)
+test_data$PriceCategory <- as.factor(test_data$PriceCategory)
+
+# Normalización de los datos
+normalize <- function(x) { (x - min(x)) / (max(x) - min(x)) }
+for (feature in features) {
+  train_data[[feature]] <- normalize(train_data[[feature]])
+  test_data[[feature]] <- normalize(test_data[[feature]])
+}
+
+# Medir el tiempo de entrenamiento
+start_time_train <- Sys.time()
+
+# Entrenar modelo con los parámetros elegidos
+knn_final <- train(
+  PriceCategory ~ .,
+  data = train_data[, c(features, "PriceCategory")],
+  method = "kknn",
+  tuneGrid = expand.grid(kmax = 7, distance = 1, kernel = "triangular")
+)
+
+end_time_train <- Sys.time()
+training_time <- end_time_train - start_time_train
+cat("Tiempo de entrenamiento:", training_time, "\n")
+
+# Medir el tiempo de predicción
+start_time_test <- Sys.time()
+
+# Hacer predicciones con el conjunto de prueba
+predictions <- predict(knn_final, test_data)
+
+end_time_test <- Sys.time()
+testing_time <- end_time_test - start_time_test
+cat("Tiempo de predicción:", testing_time, "\n")
+
+# Matriz de confusión
+conf_matrix <- confusionMatrix(predictions, test_data$PriceCategory)
+print(conf_matrix)
+
+```
+Con regresion Logistica
+
+```{r}
+library(nnet)
+library(caret)
+library(dplyr)
+
+# Leer los datos
+train <- read.csv("train_set.csv")
+test <- read.csv("test_set.csv")
+
+# Crear las categorías de precio para el conjunto de entrenamiento
+train$PrecioCategoria <- cut(train$SalePrice,
+  breaks = quantile(train$SalePrice, probs = c(0, 1/3, 2/3, 1)),
+  labels = c("barata", "media", "cara"),
+  include.lowest = TRUE
+)
+
+# Crear las categorías de precio para el conjunto de prueba
+test$PrecioCategoria <- cut(test$SalePrice,
+  breaks = quantile(train$SalePrice, probs = c(0, 1/3, 2/3, 1)),
+  labels = c("barata", "media", "cara"),
+  include.lowest = TRUE
+)
+
+# Definir la fórmula del modelo
+formula <- PrecioCategoria ~ GrLivArea + OverallQual + YearBuilt
+
+# Definir los parámetros de entrenamiento
+control <- trainControl(method = "cv", number = 10)  # Validación cruzada con 10 pliegues
+
+# Medir el tiempo de entrenamiento
+start_time_train <- Sys.time()
+
+# Ajustar el modelo utilizando train() para búsqueda de hiperparámetros con 'decay'
+modelo_cv <- train(
+  formula,
+  data = train,
+  method = "nnet",  # Usando la red neuronal
+  trControl = control,
+  tuneGrid = expand.grid(decay = 0.1, size = c(5, 10, 15)),  # Probar con distintos tamaños de capa oculta
+  linout = TRUE  # Esto asegura que la salida sea continua
+)
+
+end_time_train <- Sys.time()
+training_time <- end_time_train - start_time_train
+cat("Tiempo de entrenamiento:", training_time, "\n")
+
+# Hacer predicciones con el conjunto de entrenamiento
+predicciones <- predict(modelo_cv, newdata = train)
+
+# Crear la matriz de confusión para el conjunto de entrenamiento
+confusion_matrix <- table(Predicho = predicciones, Real = train$PrecioCategoria)
+print(confusion_matrix)
+
+accuracy <- sum(diag(confusion_matrix)) / sum(confusion_matrix)
+cat("Accuracy del modelo en entrenamiento:", round(accuracy * 100, 2), "%\n")
+
+# Medir el tiempo de predicción para el conjunto de prueba
+start_time_test <- Sys.time()
+
+# Hacer predicciones con el conjunto de prueba
+predicciones_test <- predict(modelo_cv, newdata = test)
+
+end_time_test <- Sys.time()
+testing_time <- end_time_test - start_time_test
+cat("Tiempo de predicción:", testing_time, "\n")
+
+# Crear la matriz de confusión para el conjunto de prueba
+confusion_matrix_test <- table(Predicho = predicciones_test, Real = test$PrecioCategoria)
+print(confusion_matrix_test)
+
+accuracy_test <- sum(diag(confusion_matrix_test)) / sum(confusion_matrix_test)
+cat("Accuracy en el conjunto de prueba:", round(accuracy_test * 100, 2), "%\n")
 
 ```
 
 
+Podemos ver que nos tardamos 0.018 segundos y 9.19 en la regresion logistica pero en KNN nos tardamos   nas eb test siendo 0.04 pero en entrenamiento menos que es 6
 
+
+## Conclusion
+
+La regresion Logistica es bastante buena realizando clasificacion binaria, e incluso en predecir valores. De hecho llegar a superar la regresion lineal. Y con la clasificacion binaria llega a ser muy buena clasificando casi un 100%, sin embargo no presenta una mejora e incluso hasta empeora en terminos no de eficiencia sino de prediccion con otros modelos de clasificacion al utilizar mas de una variable categorica.
+
+Por lo que podemos concluir que la regresion logistica es muy buena solo realizando predicciones o clasificacion binaria. Al enfrentarse con muchas mas variables no mejora nada. 
