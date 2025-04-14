@@ -19,7 +19,6 @@
 ## 👥 Integrantes del Grupo #1  
 - **Pablo Daniel Barillas Moreno** - *Carné No. 22193*  
 - **Mathew Cordero Aquino** - *Carné No. 22982*  
-- **Andrés Rafael Chivalán Marroquín** - *Carné No. 21534*
 
 ---
 
